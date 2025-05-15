@@ -100,16 +100,6 @@ export oO_LOG_PROXYFETCH="$log_dir/proxiefetch.log"
 export oO_LOG_PROXYCHAINS="$log_dir/proxychains.log"
 export oO_LOG_NFTABLES="$log_dir/nftables.log"
 
-# nginx Variables
-export SSL_KEY="$SSL_PRIVATE_DIR/nginx-selfsigned.key"
-export SSL_CERT="$SSL_CERTS_DIR/nginx-selfsigned.crt"
-export NGX_SSL_CONF="/etc/nginx/snippets/self-signed.conf"
-export DOMAIN="example.com"  # Replace with your actual domain
-export NGX_CONF_DIR="/etc/nginx"
-export NGX_SITES_AVAILABLE="$NGX_CONF_DIR/sites-available"
-export NGX_SITES_ENABLED="$NGX_CONF_DIR/sites-enabled"
-export PRIVOXY_CONF="/etc/privoxy/config"
-
 # Log-Level sicher definieren
 LOG_LEVEL_DEBUG=0
 LOG_LEVEL_INFO=1
