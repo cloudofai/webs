@@ -100,6 +100,16 @@ export oO_LOG_PROXYFETCH="$log_dir/proxiefetch.log"
 export oO_LOG_PROXYCHAINS="$log_dir/proxychains.log"
 export oO_LOG_NFTABLES="$log_dir/nftables.log"
 
+# nginx Variables
+export SSL_KEY="$SSL_PRIVATE_DIR/nginx-selfsigned.key"
+export SSL_CERT="$SSL_CERTS_DIR/nginx-selfsigned.crt"
+export NGX_SSL_CONF="/etc/nginx/snippets/self-signed.conf"
+export DOMAIN="example.com"  # Replace with your actual domain
+export NGX_CONF_DIR="/etc/nginx"
+export NGX_SITES_AVAILABLE="$NGX_CONF_DIR/sites-available"
+export NGX_SITES_ENABLED="$NGX_CONF_DIR/sites-enabled"
+export PRIVOXY_CONF="/etc/privoxy/config"
+
 # Log-Level sicher definieren
 LOG_LEVEL_DEBUG=0
 LOG_LEVEL_INFO=1
@@ -1173,19 +1183,19 @@ touch "$oO_LOG_NFTABLES"
 chmod 644 "$oO_LOG_NFTABLES"
 chown root:adm "$oO_LOG_NFTABLES"
 
-nginx_conf() {
-    log "Configuring Nginx SSL with strict HTTPS enforcement and SOCKS5 proxy..."
+configure_nginx_ssl() {
+    log $LOG_LEVEL_INFO "Configuring Nginx SSL with strict HTTPS enforcement and SOCKS5 proxy..." "$oO_LOG_FILE"
     local default_site="/etc/nginx/sites-enabled/default"
 
     # Check if Nginx is installed
     if ! command -v nginx &> /dev/null; then
-        log "Nginx is not installed. Please install Nginx before running this script."
+        log $LOG_LEVEL_ERROR "Nginx is not installed. Please install Nginx before running this script." "$oO_LOG_FILE"
         return 1
     fi
 
     # Check if OpenSSL is installed
     if ! command -v openssl &> /dev/null; then
-        log "OpenSSL is not installed. Please install OpenSSL before running this script."
+        log $LOG_LEVEL_ERROR "OpenSSL is not installed. Please install OpenSSL before running this script." "$oO_LOG_FILE"
         return 1
     fi
 
@@ -1195,46 +1205,46 @@ nginx_conf() {
 
     # Check if the default site exists
     if [ -L "$default_site" ] || [ -f "$default_site" ]; then
-        log  "Found default site at $default_site. Removing it..."
+        log $LOG_LEVEL_INFO  "Found default site at $default_site. Removing it..." "$oO_LOG_FILE"
         rm "$default_site"
-        log "Default site removed successfully."
+        log $LOG_LEVEL_INFO "Default site removed successfully." "$oO_LOG_FILE"
     else
-        log  "Default site not found at $default_site. No action needed."
+        log $LOG_LEVEL_INFO  "Default site not found at $default_site. No action needed." "$oO_LOG_FILE"
     fi
 
     # Ensure SSL certificates
     if [ ! -f /etc/ssl/private/nginx-selfsigned.key ] || [ ! -f /etc/ssl/certs/nginx-selfsigned.crt ] || [ ! -f /etc/ssl/certs/dhparam.pem ]; then
-        log "Required SSL files missing. Generating SSL certificates..."
+        log $LOG_LEVEL_INFO "Required SSL files missing. Generating SSL certificates..." "$oO_LOG_FILE"
         configure_openssl
         if [ $? -ne 0 ]; then
-            log "Failed to generate SSL certificates. Skipping Nginx configuration."
+            log $LOG_LEVEL_ERROR "Failed to generate SSL certificates. Skipping Nginx configuration." "$oO_LOG_FILE"
             return 1
         fi
     else
-        log "SSL certificates already exist. Skipping generation."
+        log $LOG_LEVEL_INFO "SSL certificates already exist. Skipping generation." "$oO_LOG_FILE"
     fi
 
     # Configure global Nginx settings
     local nginx_global_conf="/etc/nginx/nginx.conf"
     if [ ! -f "$nginx_global_conf.bak" ]; then
         cp "$nginx_global_conf" "$nginx_global_conf.bak"
-        log "Backup of nginx.conf created at $nginx_global_conf.bak"
+        log $LOG_LEVEL_INFO "Backup of nginx.conf created at $nginx_global_conf.bak" "$oO_LOG_FILE"
     fi
 
     # Ensure the limit_req_zone directive exists in the global http block
     if ! grep -q "limit_req_zone" "$nginx_global_conf"; then
         sed -i '/^http {/a \    limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;' "$nginx_global_conf"
-        log "Added rate limiting directive to Nginx global http block."
+        log $LOG_LEVEL_INFO "Added rate limiting directive to Nginx global http block." "$oO_LOG_FILE"
     else
-        log "Rate limiting directive already exists in Nginx configuration, skipping."
+        log $LOG_LEVEL_INFO "Rate limiting directive already exists in Nginx configuration, skipping." "$oO_LOG_FILE"
     fi
 
     # Ensure the log_format directive exists in the global http block
     if ! grep -q "log_format proxy_logs" "$nginx_global_conf"; then
         sed -i '/^http {/a \    log_format proxy_logs '\''[\$time_local] \$remote_addr: \$remote_port -> \$server_addr: \$server_port '\''\n                       '\''"\$request" \$status \$body_bytes_sent '\''\n                       '\''"\$http_referer" "\$http_user_agent" SSL: \$ssl_cipher \$ssl_protocol'\'';' "$nginx_global_conf"
-        log "Added log_format directive to Nginx global http block."
+        log $LOG_LEVEL_INFO "Added log_format directive to Nginx global http block." "$oO_LOG_FILE"
     else
-        log "Log_format directive already exists in Nginx configuration, skipping."
+        log $LOG_LEVEL_INFO "Log_format directive already exists in Nginx configuration, skipping." "$oO_LOG_FILE"
     fi
 
     # Configure Nginx SSL snippet 
@@ -1345,35 +1355,33 @@ EOF
     local NGX_SITES_ENABLED="/etc/nginx/sites-enabled/tor_proxy"
     if [ ! -f "$NGX_SITES_ENABLED" ]; then
         ln -s "$NGX_CONF" "$NGX_SITES_ENABLED"
-        log "Linked $NGX_CONF to $NGX_SITES_ENABLED."
+        log $LOG_LEVEL_INFO "Linked $NGX_CONF to $NGX_SITES_ENABLED." "$oO_LOG_FILE"
     else
-        log "Nginx site configuration already enabled, skipping."
+        log $LOG_LEVEL_INFO "Nginx site configuration already enabled, skipping." "$oO_LOG_FILE"
     fi
 
     # Test Nginx configuration
     if ! nginx -t; then
-        log "Nginx configuration test failed. Please check your configuration."
+        log $LOG_LEVEL_ERROR "Nginx configuration test failed. Please check your configuration." "$oO_LOG_FILE"
         return 1
     fi
 
     # Start Nginx to apply changes
     if systemctl start nginx; then
-        log "Nginx started successfully with updated configuration."
+        log $LOG_LEVEL_INFO "Nginx started successfully with updated configuration." "$oO_LOG_FILE"
     else
-        log "Failed to start Nginx. Check the service status."
+        log $LOG_LEVEL_ERROR "Failed to start Nginx. Check the service status." "$oO_LOG_FILE"
         return 1
     fi
 
-    log "Nginx SSL with strict HTTPS and SOCKS5 proxy configured successfully."
+    log $LOG_LEVEL_INFO "Nginx SSL with strict HTTPS and SOCKS5 proxy configured successfully." "$oO_LOG_FILE"
     return 0
 }
-
-nginx_conf
 
 # Create configure_privoxy for socks5 traffic
 privoxy_conf() {
     local PRIVOXY_CONF="/etc/privoxy/config"
-    log "Creating privoxy config..."
+    log $LOG_LEVEL_INFO "Creating privoxy config..." "$oO_LOG_FILE"
     cat << 'EOF' > "$PRIVOXY_CONF"
 # Weiterleitung an Tor (SOCKS5-Proxy)
 forward-socks5t / 127.0.0.1:9050 .
@@ -1385,10 +1393,8 @@ EOF
     # Set permissions for the configuration file
     chmod 644 "$PRIVOXY_CONF"
     chown root:root "$PRIVOXY_CONF"
-    log "Creating privoxy config successful..."
+    log $LOG_LEVEL_INFO "Creating privoxy config successful..." "$oO_LOG_FILE"
 }
-
-privoxy_conf
 
 echo "============================================================================="
 echo "                                 Setup Check                                 "
