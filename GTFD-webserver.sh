@@ -119,11 +119,11 @@ log() {
 
     # Mapping der Log-Level-Namen
     case "$level" in
-        $LOG_LEVEL_DEBUG) log_level_name="DEBUG" ;;
-        $LOG_LEVEL_INFO) log_level_name="INFO" ;;
-        $LOG_LEVEL_WARNING) log_level_name="WARNING" ;;
-        $LOG_LEVEL_ERROR) log_level_name="ERROR" ;;
-        $LOG_LEVEL_CRITICAL) log_level_name="CRITICAL" ;;
+        "$LOG_LEVEL_DEBUG") log_level_name="DEBUG" ;;
+        "$LOG_LEVEL_INFO") log_level_name="INFO" ;;
+        "$LOG_LEVEL_WARNING") log_level_name="WARNING" ;;
+        "$LOG_LEVEL_ERROR") log_level_name="ERROR" ;;
+        "$LOG_LEVEL_CRITICAL") log_level_name="CRITICAL" ;;
         *) log_level_name="UNKNOWN" ;;
     esac
 
@@ -151,20 +151,24 @@ log() {
     }
 
     # Logrotation mit Fehlerbehandlung
-    if [ -f "$log_file" ] && [ $(stat -c%s "$log_file") -gt 1048576 ]; then
+    if [ -f "$log_file" ] && [ "$(stat -c%s "$log_file")" -gt 1048576 ]; then
         if ! /usr/bin/gzip -c "$log_file" > "$log_file.$(date +'%Y%m%d%H%M%S').gz"; then
             echo "$(date +'%Y-%m-%d %H:%M:%S.%3N') [ERROR] Failed to compress log file. Skipping rotation." >&2
         else
-            > "$log_file"
+            true > "$log_file"
             find "$(dirname "$log_file")" -name "$(basename "$log_file").*.gz" -type f | sort -r | tail -n +11 | xargs rm -f
         fi
     fi
 
     # Erzeugen der Metadaten für Log-Einträge
-    local timestamp=$(date +'%Y-%m-%d %H:%M:%S.%3N')
-    local script_name=$(basename "$0")
-    local user=$(whoami)
-    local hostname=$(hostname)
+    local timestamp
+    timestamp=$(date +'%Y-%m-%d %H:%M:%S.%3N')
+    local script_name
+    script_name=$(basename "$0")
+    local user
+    user=$(whoami)
+    local hostname
+    hostname=$(hostname)
     
     # Log-Eintrag schreiben
     if ! echo "$timestamp [$log_level_name] [$script_name] [$user@$hostname] - $message" >> "$log_file"; then
@@ -218,7 +222,8 @@ remover() {
     done
 
     # Lockfile, um Race Conditions zu vermeiden
-    local lockfile="/tmp/remover.lock.$(basename "$0").$$"
+    local lockfile
+    lockfile="/tmp/remover.lock.$(basename "$0").$$"
     if [ -e "$lockfile" ]; then
         log $LOG_LEVEL_CRITICAL "Another instance of the remover function is already running. Aborting." "$oO_LOG_FILE"
         exit 1
@@ -234,7 +239,7 @@ remover() {
             log $LOG_LEVEL_CRITICAL "APT is locked for more than $max_lock_wait_time seconds. Aborting." "$oO_LOG_FILE"
             exit 1
         fi
-        log $LOG_LEVEL_WARNING "APT is locked by another process. Retrying in 5 seconds..." "$oO_LOG_FILE"
+        log "$LOG_LEVEL_WARNING" "APT is locked by another process. Retrying in 5 seconds..." "$oO_LOG_FILE"
         sleep 5
         lock_wait_time=$((lock_wait_time + 5))
     done
@@ -272,7 +277,7 @@ installer() {
 
     # APT-Sperre behandeln
     while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
-        log $LOG_LEVEL_WARNING "APT is locked by another process. Retrying in 5 seconds..." "$oO_LOG_FILE"
+        log "$LOG_LEVEL_WARNING" "APT is locked by another process. Retrying in 5 seconds..." "$oO_LOG_FILE"
         sleep 5
     done
 
@@ -302,7 +307,7 @@ installer() {
             # Bereinige temporäre Dateien
             log "Cleaning up temporary apt files..." "$oO_LOG_FILE"
             if ! apt clean; then
-                log $LOG_LEVEL_WARNING "Failed to clean up temporary apt files." "$oO_LOG_FILE"
+                log "$LOG_LEVEL_WARNING" "Failed to clean up temporary apt files." "$oO_LOG_FILE"
             fi
 
             return 0
@@ -339,7 +344,7 @@ net_setup() {
     # Versuchen, die primäre Schnittstelle aus der Standardroute zu erhalten
     primary_interface=$(ip route | grep default | awk '{print $5}')
     if [ -z "$primary_interface" ]; then
-        log $LOG_LEVEL_WARNING "PRIMARY_INTERFACE is not set. Attempting to use fallback interfaces." "$oO_LOG_FILE"
+        log "$LOG_LEVEL_WARNING" "PRIMARY_INTERFACE is not set. Attempting to use fallback interfaces." "$oO_LOG_FILE"
         for fallback in "${fallback_interfaces[@]}"; do
             if ip link show "$fallback" > /dev/null 2>&1; then
                 primary_interface="$fallback"
@@ -423,7 +428,7 @@ net_setup() {
         sysctl net.ipv6.conf.lo.disable_ipv6 | grep -q "1"; then
         log "IPv6 successfully disabled and verified." "$oO_LOG_FILE"
     else
-        log $LOG_LEVEL_WARNING "IPv6 might still be active. Verification failed." "$oO_LOG_FILE"
+        log "$LOG_LEVEL_WARNING" "IPv6 might still be active. Verification failed." "$oO_LOG_FILE"
         echo "Warnung: IPv6 ist noch aktiv!"
     fi
 }
@@ -433,7 +438,7 @@ preconf_nft() {
     if ! command -v nft &> /dev/null; then
         echo "nftables ist nicht installiert. Installiere nftables..."
         sudo apt update && sudo apt install -y nftables
-        if [ $? -ne 0 ]; then
+        if ! my_command; then
             echo "Fehler: nftables konnte nicht installiert werden!" >&2
             exit 1
         fi
@@ -445,7 +450,7 @@ preconf_nft() {
     if [ ! -d "/sys/module/nf_tables" ]; then
         echo "Das Kernel-Modul nf_tables ist nicht geladen. Lade das Modul..."
         sudo modprobe nf_tables
-        if [ $? -ne 0 ]; then
+        if ! my_command; then
             echo "Fehler: Das Kernel-Modul nf_tables konnte nicht geladen werden!" >&2
             exit 1
         fi
@@ -457,7 +462,7 @@ preconf_nft() {
     if ! lsmod | grep -q "xt_owner"; then
         echo "Das Kernel-Modul xt_owner ist nicht geladen. Lade das Modul..."
         sudo modprobe xt_owner
-        if [ $? -ne 0 ]; then
+        if ! my_command; then
             echo "Fehler: Das Kernel-Modul xt_owner konnte nicht geladen werden!" >&2
             exit 1
         fi
@@ -469,7 +474,7 @@ preconf_nft() {
 
     log "Verifiziere, ob nftables korrekt funktioniert..." "$oO_LOG_FILE"
     sudo nft add table ip test_table
-    if [ $? -ne 0 ]; then
+    if ! my_command; then
         echo "Fehler: nftables konnte keine Test-Tabelle hinzufügen!" >&2
         exit 1
     fi
@@ -878,10 +883,10 @@ resolv_conf() {
 
     # Überprüfen, ob die Datei ein Symlink ist
     if [ -L /etc/resolv.conf ]; then
-        log $LOG_LEVEL_WARNING "/etc/resolv.conf is a symlink. Replacing it with a regular file." "$oO_LOG_RESOLV"
+        log "$LOG_LEVEL_WARNING" "/etc/resolv.conf is a symlink. Replacing it with a regular file." "$oO_LOG_RESOLV"
         target=$(readlink -f /etc/resolv.conf)
         if [ "$target" != "/etc/resolv.conf" ]; then
-            log $LOG_LEVEL_WARNING "Symlink target of /etc/resolv.conf is $target. Removing it safely." "$oO_LOG_RESOLV"
+            log "$LOG_LEVEL_WARNING" "Symlink target of /etc/resolv.conf is $target. Removing it safely." "$oO_LOG_RESOLV"
         fi
         if ! rm -f /etc/resolv.conf; then
             log "Failed to remove symlink /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
@@ -911,7 +916,7 @@ resolv_conf() {
     if chattr +i /etc/resolv.conf &> /dev/null; then
         log "Immutable flag set successfully on /etc/resolv.conf." "$oO_LOG_RESOLV"
     else
-        log $LOG_LEVEL_WARNING "Failed to set immutable flag. Ensure filesystem supports chattr." "$oO_LOG_RESOLV"
+        log "$LOG_LEVEL_WARNING" "Failed to set immutable flag. Ensure filesystem supports chattr." "$oO_LOG_RESOLV"
     fi
 
     log "Resolv configuration completed successfully." "$oO_LOG_RESOLV"
@@ -1176,16 +1181,17 @@ chown root:adm "$oO_LOG_NFTABLES"
 configure_nginx_ssl() {
     log "Configuring Nginx SSL with strict HTTPS enforcement and SOCKS5 proxy..." "$oO_LOG_FILE"
     local default_site="/etc/nginx/sites-enabled/default"
+    binary_remote_addr="\$binary_remote_addr"
 
     # Check if Nginx is installed
     if ! command -v nginx &> /dev/null; then
-        log $LOG_LEVEL_ERROR "Nginx is not installed. Please install Nginx before running this script." "$oO_LOG_FILE"
+        log "$LOG_LEVEL_WARNING" "Nginx is not installed. Please install Nginx before running this script." "$oO_LOG_FILE"
         return 1
     fi
 
     # Check if OpenSSL is installed
     if ! command -v openssl &> /dev/null; then
-        log $LOG_LEVEL_ERROR "OpenSSL is not installed. Please install OpenSSL before running this script." "$oO_LOG_FILE"
+        log "$LOG_LEVEL_WARNING" "OpenSSL is not installed. Please install OpenSSL before running this script." "$oO_LOG_FILE"
         return 1
     fi
 
@@ -1206,8 +1212,8 @@ configure_nginx_ssl() {
     if [ ! -f /etc/ssl/private/nginx-selfsigned.key ] || [ ! -f /etc/ssl/certs/nginx-selfsigned.crt ] || [ ! -f /etc/ssl/certs/dhparam.pem ]; then
         log "Required SSL files missing. Generating SSL certificates..." "$oO_LOG_FILE"
         configure_openssl
-        if [ $? -ne 0 ]; then
-            log $LOG_LEVEL_ERROR "Failed to generate SSL certificates. Skipping Nginx configuration." "$oO_LOG_FILE"
+        if ! my_command; then
+            log "$LOG_LEVEL_WARNING" "Failed to generate SSL certificates. Skipping Nginx configuration." "$oO_LOG_FILE"
             return 1
         fi
     else
@@ -1223,7 +1229,7 @@ configure_nginx_ssl() {
 
     # Ensure the limit_req_zone directive exists in the global http block
     if ! grep -q "limit_req_zone" "$nginx_global_conf"; then
-        sed -i '/^http {/a \    limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;' "$nginx_global_conf"
+        sed -i "/^http {/a \    limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;" "$nginx_global_conf"
         log "Added rate limiting directive to Nginx global http block." "$oO_LOG_FILE"
     else
         log "Rate limiting directive already exists in Nginx configuration, skipping." "$oO_LOG_FILE"
@@ -1231,7 +1237,7 @@ configure_nginx_ssl() {
 
     # Ensure the log_format directive exists in the global http block
     if ! grep -q "log_format proxy_logs" "$nginx_global_conf"; then
-        sed -i '/^http {/a \    log_format proxy_logs '\''[\$time_local] \$remote_addr: \$remote_port -> \$server_addr: \$server_port '\''\n                       '\''"\$request" \$status \$body_bytes_sent '\''\n                       '\''"\$http_referer" "\$http_user_agent" SSL: \$ssl_cipher \$ssl_protocol'\'';' "$nginx_global_conf"
+        sed -i "/^http {/a \    log_format proxy_logs '\''[\$time_local] \$remote_addr: \$remote_port -> \$server_addr: \$server_port '\''\n                       '\"\$request" \$status \$body_bytes_sent'\\n                       '\"\$http_referer\" \"\$http_user_agent" SSL: \$ssl_cipher \$ssl_protocol';" "$nginx_global_conf"
         log "Added log_format directive to Nginx global http block." "$oO_LOG_FILE"
     else
         log "Log_format directive already exists in Nginx configuration, skipping." "$oO_LOG_FILE"
@@ -1352,7 +1358,7 @@ EOF
 
     # Test Nginx configuration
     if ! nginx -t; then
-        log $LOG_LEVEL_ERROR "Nginx configuration test failed. Please check your configuration." "$oO_LOG_FILE"
+        log "$LOG_LEVEL_WARNING" "Nginx configuration test failed. Please check your configuration." "$oO_LOG_FILE"
         return 1
     fi
 
@@ -1360,7 +1366,7 @@ EOF
     if systemctl start nginx; then
         log "Nginx started successfully with updated configuration." "$oO_LOG_FILE"
     else
-        log $LOG_LEVEL_ERROR "Failed to start Nginx. Check the service status." "$oO_LOG_FILE"
+        log "$LOG_LEVEL_WARNING" "Failed to start Nginx. Check the service status." "$oO_LOG_FILE"
         return 1
     fi
 

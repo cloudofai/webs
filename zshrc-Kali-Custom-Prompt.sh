@@ -18,7 +18,7 @@ setup_zsh() {
     if command -v zsh &> /dev/null; then
         if [ "$SHELL" != "$(which zsh)" ]; then
             echo "Setting Zsh as the default shell..."
-            chsh -s $(which zsh)
+            chsh -s "$(which zsh)"
             echo "Zsh has been set as the default shell. Please restart your terminal session."
         else
             echo "Zsh is already the default shell."
