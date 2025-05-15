@@ -1453,8 +1453,8 @@ verifier() {
 
 verifier
 
-log "#############################################################################" "$oO_LOG_FILE"
-log "=============================================================================" "$oO_LOG_FILE"
+log "$LOG_LEVEL_INFO" "#############################################################################" "$oO_LOG_FILE"
+log "$LOG_LEVEL_INFO" "=============================================================================" "$oO_LOG_FILE"
 
 echo "#############################################################################"
 echo "============================================================================="
@@ -1465,5 +1465,5 @@ script_duration=$((script_end_time - script_start_time))
 duration_formatted=$(printf '%02d:%02d:%02d' $((script_duration/3600)) $((script_duration%3600/60)) $((script_duration%60)))
 
 # Loggen der Abschlussnachricht
-log "Script execution completed! Total runtime: $duration_formatted (hh:mm:ss)" "$oO_LOG_FILE"
+log "$LOG_LEVEL_INFO" "Script execution completed! Total runtime: $duration_formatted (hh:mm:ss)" "$oO_LOG_FILE"
 echo  "Script execution completed! Total runtime: $duration_formatted (hh:mm:ss)"
