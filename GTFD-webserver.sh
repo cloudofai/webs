@@ -178,12 +178,12 @@ log() {
 }
 
 # Logs initialisieren und Berechtigungen setzen
-log $LOG_LEVEL_INFO "oO_LOG_FILE=$oO_LOG_FILE" "$oO_LOG_FILE"
-log $LOG_LEVEL_INFO "oO_LOG_PATH=$oO_LOG_PATH" "$oO_LOG_FILE"
-log $LOG_LEVEL_INFO "oO_LOG_RESOLV=$oO_LOG_RESOLV" "$oO_LOG_FILE"
-log $LOG_LEVEL_INFO "oO_LOG_PROXYFETCH=$oO_LOG_PROXYFETCH" "$oO_LOG_FILE"
-log $LOG_LEVEL_INFO "oO_LOG_PROXYCHAINS=$oO_LOG_PROXYCHAINS" "$oO_LOG_FILE"
-log $LOG_LEVEL_INFO "oO_LOG_NFTABLES=$oO_LOG_NFTABLES" "$oO_LOG_FILE" 
+log "oO_LOG_FILE=$oO_LOG_FILE" "$oO_LOG_FILE"
+log "oO_LOG_PATH=$oO_LOG_PATH" "$oO_LOG_FILE"
+log "oO_LOG_RESOLV=$oO_LOG_RESOLV" "$oO_LOG_FILE"
+log "oO_LOG_PROXYFETCH=$oO_LOG_PROXYFETCH" "$oO_LOG_FILE"
+log "oO_LOG_PROXYCHAINS=$oO_LOG_PROXYCHAINS" "$oO_LOG_FILE"
+log "oO_LOG_NFTABLES=$oO_LOG_NFTABLES" "$oO_LOG_FILE" 
 
 touch "$oO_LOG_FILE"
 chmod 644 "$oO_LOG_FILE"
@@ -200,7 +200,7 @@ echo "==========================================================================
 echo ""
 
 remover() {
-    log $LOG_LEVEL_INFO "Checking if libcurl4 is installed..." "$oO_LOG_FILE"
+    log "Checking if libcurl4 is installed..." "$oO_LOG_FILE"
 
     # Überprüfen, ob das Skript mit Root-Rechten ausgeführt wird
     if [ "$EUID" -ne 0 ]; then
@@ -241,17 +241,17 @@ remover() {
 
     # Überprüfen, ob libcurl4 installiert ist
     if dpkg -l | grep -q "^ii.*libcurl4"; then
-        log $LOG_LEVEL_INFO "libcurl4 is installed. Attempting to remove it for better compatibility with curl install..." "$oO_LOG_FILE"
+        log "libcurl4 is installed. Attempting to remove it for better compatibility with curl install..." "$oO_LOG_FILE"
 
         local attempts=0
         local max_attempts=3
         while [ $attempts -lt $max_attempts ]; do
             if timeout 180 /usr/bin/apt remove --purge -y curl libcurl4; then
-                log $LOG_LEVEL_INFO "libcurl4 was successfully removed. curl will now be installed with the oO-Package." "$oO_LOG_FILE"
+                log "libcurl4 was successfully removed. curl will now be installed with the oO-Package." "$oO_LOG_FILE"
                 return 0
             else
                 attempts=$((attempts + 1))
-                log $LOG_LEVEL_ERROR "Failed to remove libcurl4. Attempt $attempts of $max_attempts. Retrying in $((attempts * 5)) seconds..." "$oO_LOG_FILE"
+                log "Failed to remove libcurl4. Attempt $attempts of $max_attempts. Retrying in $((attempts * 5)) seconds..." "$oO_LOG_FILE"
                 sleep $((attempts * 5))
             fi
         done
@@ -259,12 +259,12 @@ remover() {
         log $LOG_LEVEL_CRITICAL "Failed to remove libcurl4 after $max_attempts attempts. Please check for errors in the package manager logs." "$oO_LOG_FILE"
         return 1
     else
-        log $LOG_LEVEL_INFO "libcurl4 is not installed. Skipping removal." "$oO_LOG_FILE"
+        log "libcurl4 is not installed. Skipping removal." "$oO_LOG_FILE"
     fi
 }
 
 installer() {
-    log $LOG_LEVEL_INFO "Starting package installation..." "$oO_LOG_FILE"
+    log "Starting package installation..." "$oO_LOG_FILE"
 
     local attempts=0
     local max_attempts=3
@@ -277,30 +277,30 @@ installer() {
     done
 
     while [ $attempts -lt $max_attempts ]; do
-        log $LOG_LEVEL_INFO "Updating package lists..." "$oO_LOG_FILE"
+        log "Updating package lists..." "$oO_LOG_FILE"
         if ! apt update -y; then
-            log $LOG_LEVEL_ERROR "Failed to update package lists. Attempt $((attempts + 1)) of $max_attempts." "$oO_LOG_FILE"
+            log "Failed to update package lists. Attempt $((attempts + 1)) of $max_attempts." "$oO_LOG_FILE"
             attempts=$((attempts + 1))
             sleep $((attempts * 5))
             continue
         fi
 
-        log $LOG_LEVEL_INFO "Installing packages: ${critical_packages[*]}..." "$oO_LOG_FILE"
+        log "Installing packages: ${critical_packages[*]}..." "$oO_LOG_FILE"
         if apt install -y "${critical_packages[@]}"; then
-            log $LOG_LEVEL_INFO "Packages installed successfully." "$oO_LOG_FILE"
+            log "Packages installed successfully." "$oO_LOG_FILE"
 
             # Überprüfen, ob alle kritischen Pakete installiert sind
             for pkg in "${critical_packages[@]}"; do
                 if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "installed"; then
-                    log $LOG_LEVEL_ERROR "Critical package $pkg is missing or not fully installed. Aborting." "$oO_LOG_FILE"
+                    log "Critical package $pkg is missing or not fully installed. Aborting." "$oO_LOG_FILE"
                     return 1
                 fi
             done
 
-            log $LOG_LEVEL_INFO "All critical packages verified." "$oO_LOG_FILE"
+            log "All critical packages verified." "$oO_LOG_FILE"
 
             # Bereinige temporäre Dateien
-            log $LOG_LEVEL_INFO "Cleaning up temporary apt files..." "$oO_LOG_FILE"
+            log "Cleaning up temporary apt files..." "$oO_LOG_FILE"
             if ! apt clean; then
                 log $LOG_LEVEL_WARNING "Failed to clean up temporary apt files." "$oO_LOG_FILE"
             fi
@@ -308,12 +308,12 @@ installer() {
             return 0
         else
             attempts=$((attempts + 1))
-            log $LOG_LEVEL_ERROR "Failed to install packages. Attempt $attempts of $max_attempts. Retrying in $((attempts * 5)) seconds..." "$oO_LOG_FILE"
+            log "Failed to install packages. Attempt $attempts of $max_attempts. Retrying in $((attempts * 5)) seconds..." "$oO_LOG_FILE"
             sleep $((attempts * 5))
         fi
     done
 
-    log $LOG_LEVEL_ERROR "Failed to install packages after $max_attempts attempts. Please check your network connection and try again." "$oO_LOG_FILE"
+    log "Failed to install packages after $max_attempts attempts. Please check your network connection and try again." "$oO_LOG_FILE"
     return 1
 }
 
@@ -329,10 +329,10 @@ echo ""
 
 # Funktion zur Erkennung des lokalen Netzwerk-IP-Bereichs
 net_setup() {
-    log $LOG_LEVEL_INFO "Starting network setup..." "$oO_LOG_FILE"
+    log "Starting network setup..." "$oO_LOG_FILE"
 
     # Erkennen und Festlegen der primären Netzwerkschnittstelle
-    log $LOG_LEVEL_INFO "Detecting primary network interface..." "$oO_LOG_FILE"
+    log "Detecting primary network interface..." "$oO_LOG_FILE"
     local primary_interface
     local fallback_interfaces=("eth0" "wlan0")
     
@@ -343,7 +343,7 @@ net_setup() {
         for fallback in "${fallback_interfaces[@]}"; do
             if ip link show "$fallback" > /dev/null 2>&1; then
                 primary_interface="$fallback"
-                log $LOG_LEVEL_INFO "Fallback to $fallback as PRIMARY_INTERFACE." "$oO_LOG_FILE"
+                log "Fallback to $fallback as PRIMARY_INTERFACE." "$oO_LOG_FILE"
                 break
             fi
         done
@@ -353,10 +353,10 @@ net_setup() {
             exit 1
         fi
     fi
-    log $LOG_LEVEL_INFO "Detected primary interface: $primary_interface" "$oO_LOG_FILE"
+    log "Detected primary interface: $primary_interface" "$oO_LOG_FILE"
 
     # Erkennen und Festlegen des lokalen IP-Bereichs
-    log $LOG_LEVEL_INFO "Detecting local IP range..." "$oO_LOG_FILE"
+    log "Detecting local IP range..." "$oO_LOG_FILE"
     local local_ip
     local ip_prefix
     local allowed_ip_range
@@ -374,14 +374,14 @@ net_setup() {
 
     ip_prefix=$(echo "$local_ip" | cut -d. -f1-3)
     allowed_ip_range="$ip_prefix.0/24"
-    log $LOG_LEVEL_INFO "Detected IP range: $allowed_ip_range (Interface: $primary_interface, IP: $local_ip)" "$oO_LOG_FILE"
+    log "Detected IP range: $allowed_ip_range (Interface: $primary_interface, IP: $local_ip)" "$oO_LOG_FILE"
 
     # Exportieren der primären Schnittstelle und des IP-Bereichs
     export PRIMARY_INTERFACE="$primary_interface"
     export ALLOWED_IP_RANGE="$allowed_ip_range"
 
     # IPv6 systemweit deaktivieren
-    log $LOG_LEVEL_INFO "Disabling IPv6 system-wide..." "$oO_LOG_FILE"
+    log "Disabling IPv6 system-wide..." "$oO_LOG_FILE"
     local ipv6_conf="/etc/sysctl.d/99-disable-ipv6.conf"
 
     # Überprüfen, ob das Skript mit Root-Rechten ausgeführt wird
@@ -411,7 +411,7 @@ net_setup() {
 
     # Anwenden der Änderungen
     if sysctl --system; then
-        log $LOG_LEVEL_INFO "IPv6 successfully disabled system-wide." "$oO_LOG_FILE"
+        log "IPv6 successfully disabled system-wide." "$oO_LOG_FILE"
     else
         log $LOG_LEVEL_CRITICAL "Failed to apply sysctl configurations." "$oO_LOG_FILE"
         exit 1
@@ -421,7 +421,7 @@ net_setup() {
     if sysctl net.ipv6.conf.all.disable_ipv6 | grep -q "1" && \
         sysctl net.ipv6.conf.default.disable_ipv6 | grep -q "1" && \
         sysctl net.ipv6.conf.lo.disable_ipv6 | grep -q "1"; then
-        log $LOG_LEVEL_INFO "IPv6 successfully disabled and verified." "$oO_LOG_FILE"
+        log "IPv6 successfully disabled and verified." "$oO_LOG_FILE"
     else
         log $LOG_LEVEL_WARNING "IPv6 might still be active. Verification failed." "$oO_LOG_FILE"
         echo "Warnung: IPv6 ist noch aktiv!"
@@ -429,7 +429,7 @@ net_setup() {
 }
 
 preconf_nft() {
-    log $LOG_LEVEL_INFO "Prüfe, ob nftables installiert ist..." "$oO_LOG_FILE"
+    log "Prüfe, ob nftables installiert ist..." "$oO_LOG_FILE"
     if ! command -v nft &> /dev/null; then
         echo "nftables ist nicht installiert. Installiere nftables..."
         sudo apt update && sudo apt install -y nftables
@@ -441,7 +441,7 @@ preconf_nft() {
         echo "nftables ist installiert."
     fi
 
-    log $LOG_LEVEL_INFO "Prüfe, ob das nf_tables-Modul geladen ist..." "$oO_LOG_FILE"
+    log "Prüfe, ob das nf_tables-Modul geladen ist..." "$oO_LOG_FILE"
     if [ ! -d "/sys/module/nf_tables" ]; then
         echo "Das Kernel-Modul nf_tables ist nicht geladen. Lade das Modul..."
         sudo modprobe nf_tables
@@ -453,7 +453,7 @@ preconf_nft() {
         echo "Das Kernel-Modul nf_tables ist geladen."
     fi
 
-    log $LOG_LEVEL_INFO "Prüfe, ob das xt_owner-Modul geladen ist..." "$oO_LOG_FILE"
+    log "Prüfe, ob das xt_owner-Modul geladen ist..." "$oO_LOG_FILE"
     if ! lsmod | grep -q "xt_owner"; then
         echo "Das Kernel-Modul xt_owner ist nicht geladen. Lade das Modul..."
         sudo modprobe xt_owner
@@ -467,7 +467,7 @@ preconf_nft() {
         echo "Das Kernel-Modul xt_owner ist geladen."
     fi
 
-    log $LOG_LEVEL_INFO "Verifiziere, ob nftables korrekt funktioniert..." "$oO_LOG_FILE"
+    log "Verifiziere, ob nftables korrekt funktioniert..." "$oO_LOG_FILE"
     sudo nft add table ip test_table
     if [ $? -ne 0 ]; then
         echo "Fehler: nftables konnte keine Test-Tabelle hinzufügen!" >&2
@@ -521,25 +521,25 @@ echo "==========================================================================
 echo ""
 
 tor_conf() {
-    log $LOG_LEVEL_INFO "Configuring and enabling Tor..." "$oO_LOG_FILE"
+    log "Configuring and enabling Tor..." "$oO_LOG_FILE"
 
     # Überprüfen, ob Root-Rechte vorhanden sind
     if [ "$EUID" -ne 0 ]; then
-        log $LOG_LEVEL_ERROR "This script must be run as root." "$oO_LOG_FILE"
+        log "This script must be run as root." "$oO_LOG_FILE"
         return 1
     fi
 
     # Überprüfen, ob Tor installiert ist
     if ! command -v tor &> /dev/null; then
-        log $LOG_LEVEL_ERROR "Tor is not installed. Please install Tor before running this script." "$oO_LOG_FILE"
+        log "Tor is not installed. Please install Tor before running this script." "$oO_LOG_FILE"
         return 1
     fi
 
     # Stoppe den Tor-Dienst, falls aktiv
     if systemctl is-active --quiet tor; then
-        log $LOG_LEVEL_INFO "Stopping Tor service before reconfiguration..." "$oO_LOG_FILE"
+        log "Stopping Tor service before reconfiguration..." "$oO_LOG_FILE"
         if ! systemctl stop tor; then
-            log $LOG_LEVEL_ERROR "Failed to stop Tor service." "$oO_LOG_FILE"
+            log "Failed to stop Tor service." "$oO_LOG_FILE"
             return 1
         fi
     fi
@@ -547,29 +547,29 @@ tor_conf() {
     # Erstelle das Tor-Verzeichnis, falls nicht vorhanden
     if [ ! -d /etc/tor ]; then
         mkdir -p /etc/tor
-        log $LOG_LEVEL_INFO "Created /etc/tor directory." "$oO_LOG_FILE"
+        log "Created /etc/tor directory." "$oO_LOG_FILE"
     fi
 
     # Überprüfen, ob der Benutzer debian-tor existiert
     if ! id -u debian-tor &>/dev/null; then
         useradd -r -s /bin/false debian-tor
-        log $LOG_LEVEL_INFO "Created user debian-tor." "$oO_LOG_FILE"
+        log "Created user debian-tor." "$oO_LOG_FILE"
     fi
 
     # Setze sichere Berechtigungen für /var/lib/tor
     mkdir -p /var/lib/tor
     chmod 700 /var/lib/tor
     chown -R debian-tor:debian-tor /var/lib/tor
-    log $LOG_LEVEL_INFO "Set permissions for /var/lib/tor." "$oO_LOG_FILE"
+    log "Set permissions for /var/lib/tor." "$oO_LOG_FILE"
 
     # Setze sichere Berechtigungen für /var/run/tor
     mkdir -p /var/run/tor
     chmod 755 /var/run/tor
     chown debian-tor:debian-tor /var/run/tor
-    log $LOG_LEVEL_INFO "Set permissions for /var/run/tor." "$oO_LOG_FILE"
+    log "Set permissions for /var/run/tor." "$oO_LOG_FILE"
 
     # Schreibe die torrc-Datei sicher
-    log $LOG_LEVEL_INFO "Writing torrc file..." "$oO_LOG_FILE"
+    log "Writing torrc file..." "$oO_LOG_FILE"
     temp_torrc=$(mktemp)
     cat <<EOF > "$temp_torrc"
 # torrc by GTFD ka5oeze ===================== #
@@ -821,39 +821,39 @@ EOF
 
     # Überprüfen, ob die Datei sicher verschoben werden kann
     if ! mv "$temp_torrc" /etc/tor/torrc; then
-        log $LOG_LEVEL_ERROR "Failed to move temporary torrc file to /etc/tor/torrc." "$oO_LOG_FILE"
+        log "Failed to move temporary torrc file to /etc/tor/torrc." "$oO_LOG_FILE"
         return 1
     fi
     chmod 600 /etc/tor/torrc
     chown debian-tor:adm /etc/tor/torrc
-    log $LOG_LEVEL_INFO "Tor configuration written successfully." "$oO_LOG_FILE"
+    log "Tor configuration written successfully." "$oO_LOG_FILE"
 
     # Überprüfen der Tor-Konfiguration
     if ! tor --verify-config &>> "$oO_LOG_FILE"; then
-        log $LOG_LEVEL_ERROR "Invalid torrc configuration. Please check the log for details." "$oO_LOG_FILE"
+        log "Invalid torrc configuration. Please check the log for details." "$oO_LOG_FILE"
         return 1
     fi
 
     # Systemd neu laden und Tor-Dienst aktivieren
-    log $LOG_LEVEL_INFO "Reloading systemd manager configuration..." "$oO_LOG_FILE"
+    log "Reloading systemd manager configuration..." "$oO_LOG_FILE"
     if ! systemctl daemon-reload; then
-        log $LOG_LEVEL_ERROR "Failed to reload systemd manager configuration." "$oO_LOG_FILE"
+        log "Failed to reload systemd manager configuration." "$oO_LOG_FILE"
         return 1
     fi
 
-    log $LOG_LEVEL_INFO "Enabling Tor service..." "$oO_LOG_FILE"
+    log "Enabling Tor service..." "$oO_LOG_FILE"
     if ! systemctl enable tor; then
-        log $LOG_LEVEL_ERROR "Failed to enable Tor service." "$oO_LOG_FILE"
+        log "Failed to enable Tor service." "$oO_LOG_FILE"
         return 1
     fi
 
-    log $LOG_LEVEL_INFO "Starting Tor service..." "$oO_LOG_FILE"
+    log "Starting Tor service..." "$oO_LOG_FILE"
     if ! systemctl start tor; then
-        log $LOG_LEVEL_ERROR "Failed to start Tor service." "$oO_LOG_FILE"
+        log "Failed to start Tor service." "$oO_LOG_FILE"
         return 1
     fi
 
-    log $LOG_LEVEL_INFO "Tor service is running successfully." "$oO_LOG_FILE"
+    log "Tor service is running successfully." "$oO_LOG_FILE"
     return 0
 }
 
@@ -868,11 +868,11 @@ chmod 644 /var/log/tor/security.log
 chown debian-tor:adm /var/log/tor/security.log
 
 resolv_conf() {
-    log $LOG_LEVEL_INFO "Configuring resolv.conf to prevent DNS leaks..." "$oO_LOG_RESOLV"
+    log "Configuring resolv.conf to prevent DNS leaks..." "$oO_LOG_RESOLV"
 
     # Überprüfen, ob Root-Rechte vorhanden sind
     if [ "$EUID" -ne 0 ]; then
-        log $LOG_LEVEL_ERROR "This function must be run as root. Insufficient privileges." "$oO_LOG_RESOLV"
+        log "This function must be run as root. Insufficient privileges." "$oO_LOG_RESOLV"
         return 1
     fi
 
@@ -884,7 +884,7 @@ resolv_conf() {
             log $LOG_LEVEL_WARNING "Symlink target of /etc/resolv.conf is $target. Removing it safely." "$oO_LOG_RESOLV"
         fi
         if ! rm -f /etc/resolv.conf; then
-            log $LOG_LEVEL_ERROR "Failed to remove symlink /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
+            log "Failed to remove symlink /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
             return 1
         fi
     fi
@@ -892,29 +892,29 @@ resolv_conf() {
     # Schreibe die neue resolv.conf
     local dns_server="127.0.0.1"
     if ! echo "nameserver $dns_server" > /etc/resolv.conf; then
-        log $LOG_LEVEL_ERROR "Failed to write to /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
+        log "Failed to write to /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
         return 1
     fi
-    log $LOG_LEVEL_INFO "Successfully wrote to /etc/resolv.conf." "$oO_LOG_RESOLV"
+    log "Successfully wrote to /etc/resolv.conf." "$oO_LOG_RESOLV"
 
     # Setze die Berechtigungen für /etc/resolv.conf
     if ! chmod 644 /etc/resolv.conf; then
-        log $LOG_LEVEL_ERROR "Failed to set permissions on /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
+        log "Failed to set permissions on /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
         return 1
     fi
     if ! chown root:root /etc/resolv.conf; then
-        log $LOG_LEVEL_ERROR "Failed to set ownership on /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
+        log "Failed to set ownership on /etc/resolv.conf. Check permissions." "$oO_LOG_RESOLV"
         return 1
     fi
 
     # Setze das Immutable-Flag
     if chattr +i /etc/resolv.conf &> /dev/null; then
-        log $LOG_LEVEL_INFO "Immutable flag set successfully on /etc/resolv.conf." "$oO_LOG_RESOLV"
+        log "Immutable flag set successfully on /etc/resolv.conf." "$oO_LOG_RESOLV"
     else
         log $LOG_LEVEL_WARNING "Failed to set immutable flag. Ensure filesystem supports chattr." "$oO_LOG_RESOLV"
     fi
 
-    log $LOG_LEVEL_INFO "Resolv configuration completed successfully." "$oO_LOG_RESOLV"
+    log "Resolv configuration completed successfully." "$oO_LOG_RESOLV"
     return 0
 }
 
@@ -925,26 +925,26 @@ chmod 644 "$oO_LOG_RESOLV"
 chown root:adm "$oO_LOG_RESOLV"
 
 proxychains_conf() {
-    log $LOG_LEVEL_INFO "Checking if ProxyChains is installed..." "$oO_LOG_PROXYCHAINS"
+    log "Checking if ProxyChains is installed..." "$oO_LOG_PROXYCHAINS"
     
     # Überprüfen, ob Root-Rechte vorhanden sind
     if [ "$EUID" -ne 0 ]; then
-        log $LOG_LEVEL_ERROR "This function must be run as root. Insufficient privileges." "$oO_LOG_PROXYCHAINS"
+        log "This function must be run as root. Insufficient privileges." "$oO_LOG_PROXYCHAINS"
         return 1
     fi
 
     # Überprüfen, ob ProxyChains installiert ist
     if ! command -v proxychains &> /dev/null; then
-        log $LOG_LEVEL_ERROR "ProxyChains is not installed. Please install ProxyChains before running this script." "$oO_LOG_PROXYCHAINS"
+        log "ProxyChains is not installed. Please install ProxyChains before running this script." "$oO_LOG_PROXYCHAINS"
         return 1
     else
-        log $LOG_LEVEL_INFO "ProxyChains is already installed." "$oO_LOG_PROXYCHAINS"
+        log "ProxyChains is already installed." "$oO_LOG_PROXYCHAINS"
     fi
 
     # Sicherstellen, dass das Verzeichnis für Proxys existiert
     local proxychains_dir="/etc/proxychains"
     if [ -e "$proxychains_dir" ] && [ ! -d "$proxychains_dir" ]; then
-        log $LOG_LEVEL_ERROR "$proxychains_dir exists but is not a directory. Aborting to prevent potential symlink attacks." "$oO_LOG_PROXYCHAINS"
+        log "$proxychains_dir exists but is not a directory. Aborting to prevent potential symlink attacks." "$oO_LOG_PROXYCHAINS"
         return 1
     fi
 
@@ -952,18 +952,18 @@ proxychains_conf() {
         mkdir -p "$proxychains_dir"
         chmod 755 "$proxychains_dir"
         chown root:root "$proxychains_dir"
-        log $LOG_LEVEL_INFO "Created directory $proxychains_dir." "$oO_LOG_PROXYCHAINS"
+        log "Created directory $proxychains_dir." "$oO_LOG_PROXYCHAINS"
     fi
 
     # Sicherstellen, dass die ProxyChains-Konfigurationsdatei existiert und sicher ist
     local proxychains_conf="/etc/proxychains.conf"
     if [ -e "$proxychains_conf" ] && [ ! -f "$proxychains_conf" ]; then
-        log $LOG_LEVEL_ERROR "$proxychains_conf exists but is not a regular file. Aborting to prevent potential symlink attacks." "$oO_LOG_PROXYCHAINS"
+        log "$proxychains_conf exists but is not a regular file. Aborting to prevent potential symlink attacks." "$oO_LOG_PROXYCHAINS"
         return 1
     fi
 
     # Konfigurationsdatei immer erstellen oder aktualisieren
-    log $LOG_LEVEL_INFO "Creating or updating $proxychains_conf file..." "$oO_LOG_PROXYCHAINS"
+    log "Creating or updating $proxychains_conf file..." "$oO_LOG_PROXYCHAINS"
     cat << 'EOF' > "$proxychains_conf"
 # proxychains.conf  by GTFD ka5oeze
 #
@@ -1053,12 +1053,12 @@ EOF
     if [ ! -f "$proxychains_conf" ]; then
         chmod 644 "$proxychains_conf"
         chown root:root "$proxychains_conf"
-        log $LOG_LEVEL_INFO "ProxyChains configuration file created and permissions set." "$oO_LOG_PROXYCHAINS"
+        log "ProxyChains configuration file created and permissions set." "$oO_LOG_PROXYCHAINS"
     else
-        log $LOG_LEVEL_INFO "ProxyChains configuration file already exists." "$oO_LOG_PROXYCHAINS"
+        log "ProxyChains configuration file already exists." "$oO_LOG_PROXYCHAINS"
     fi
 
-    log $LOG_LEVEL_INFO "ProxyChains configured successfully." "$oO_LOG_PROXYCHAINS"
+    log "ProxyChains configured successfully." "$oO_LOG_PROXYCHAINS"
     return 0
 }
 
@@ -1069,22 +1069,22 @@ chmod 644 "$oO_LOG_PROXYCHAINS"
 chown root:adm "$oO_LOG_PROXYCHAINS"
 
 nftables_conf() {
-    log $LOG_LEVEL_INFO "Configuring nftables..." "$oO_LOG_NFTABLES"
+    log "Configuring nftables..." "$oO_LOG_NFTABLES"
     
     # Überprüfen, ob Root-Rechte vorhanden sind
     if [ "$EUID" -ne 0 ]; then
-        log $LOG_LEVEL_ERROR "This function must be run as root. Insufficient privileges." "$oO_LOG_NFTABLES"
+        log "This function must be run as root. Insufficient privileges." "$oO_LOG_NFTABLES"
         return 1
     fi
 
     # Überprüfen, ob nftables installiert ist
     if ! command -v nft &> /dev/null; then
-        log $LOG_LEVEL_ERROR "nftables is not installed. Please install nftables before running this script." "$oO_LOG_NFTABLES"
+        log "nftables is not installed. Please install nftables before running this script." "$oO_LOG_NFTABLES"
         return 1
     fi
 
     # Bestehende Konfiguration löschen
-    log $LOG_LEVEL_INFO "Flushing existing nftables rules..." "$oO_LOG_NFTABLES"
+    log "Flushing existing nftables rules..." "$oO_LOG_NFTABLES"
     nft flush ruleset
 
     # Konfiguration für Tor
@@ -1093,7 +1093,7 @@ nftables_conf() {
     dns_port=5353
     tor_uid=$(id -u debian-tor 2>/dev/null)  # Dein Tor-Benutzer
     if [ -z "$tor_uid" ]; then
-        log $LOG_LEVEL_ERROR "The Tor user 'debian-tor' does not exist. Please configure Tor correctly before running this script." "$oO_LOG_NFTABLES"
+        log "The Tor user 'debian-tor' does not exist. Please configure Tor correctly before running this script." "$oO_LOG_NFTABLES"
         return 1
     fi
     non_tor="192.168.0.0/16"
@@ -1147,24 +1147,24 @@ EOF
 
     chmod 600 "$nftables_conf"
     chown root:root "$nftables_conf"
-    log $LOG_LEVEL_INFO "Successfully created nftables configuration at $nftables_conf." "$oO_LOG_NFTABLES"
+    log "Successfully created nftables configuration at $nftables_conf." "$oO_LOG_NFTABLES"
 
     # Regeln laden
-    log $LOG_LEVEL_INFO "Loading nftables configuration..." "$oO_LOG_NFTABLES"
+    log "Loading nftables configuration..." "$oO_LOG_NFTABLES"
     if ! nft -f "$nftables_conf"; then
-        log $LOG_LEVEL_ERROR "Failed to load nftables configuration." "$oO_LOG_NFTABLES"
+        log "Failed to load nftables configuration." "$oO_LOG_NFTABLES"
         return 1
     fi
 
     # nftables-Dienst aktivieren
-    log $LOG_LEVEL_INFO "Enabling nftables service..." "$oO_LOG_NFTABLES"
+    log "Enabling nftables service..." "$oO_LOG_NFTABLES"
     systemctl enable nftables
     if ! systemctl restart nftables; then
-        log $LOG_LEVEL_ERROR "Failed to restart nftables service." "$oO_LOG_NFTABLES"
+        log "Failed to restart nftables service." "$oO_LOG_NFTABLES"
         return 1
     fi
 
-    log $LOG_LEVEL_INFO "nftables configuration completed successfully." "$oO_LOG_NFTABLES"
+    log "nftables configuration completed successfully." "$oO_LOG_NFTABLES"
 }
 
 nftables_conf
@@ -1174,18 +1174,18 @@ chmod 644 "$oO_LOG_NFTABLES"
 chown root:adm "$oO_LOG_NFTABLES"
 
 nginx_conf() {
-    log $LOG_LEVEL_INFO "Configuring Nginx SSL with strict HTTPS enforcement and SOCKS5 proxy..." "$UPDATE_LOG_FILE"
+    log "Configuring Nginx SSL with strict HTTPS enforcement and SOCKS5 proxy..."
     local default_site="/etc/nginx/sites-enabled/default"
 
     # Check if Nginx is installed
     if ! command -v nginx &> /dev/null; then
-        log $LOG_LEVEL_ERROR "Nginx is not installed. Please install Nginx before running this script." "$UPDATE_LOG_FILE"
+        log "Nginx is not installed. Please install Nginx before running this script."
         return 1
     fi
 
     # Check if OpenSSL is installed
     if ! command -v openssl &> /dev/null; then
-        log $LOG_LEVEL_ERROR "OpenSSL is not installed. Please install OpenSSL before running this script." "$UPDATE_LOG_FILE"
+        log "OpenSSL is not installed. Please install OpenSSL before running this script."
         return 1
     fi
 
@@ -1195,46 +1195,46 @@ nginx_conf() {
 
     # Check if the default site exists
     if [ -L "$default_site" ] || [ -f "$default_site" ]; then
-        log $LOG_LEVEL_INFO  "Found default site at $default_site. Removing it..." "$UPDATE_LOG_FILE"
+        log  "Found default site at $default_site. Removing it..."
         rm "$default_site"
-        log $LOG_LEVEL_INFO "Default site removed successfully." "$UPDATE_LOG_FILE"
+        log "Default site removed successfully."
     else
-        log $LOG_LEVEL_INFO  "Default site not found at $default_site. No action needed." "$UPDATE_LOG_FILE"
+        log  "Default site not found at $default_site. No action needed."
     fi
 
     # Ensure SSL certificates
     if [ ! -f /etc/ssl/private/nginx-selfsigned.key ] || [ ! -f /etc/ssl/certs/nginx-selfsigned.crt ] || [ ! -f /etc/ssl/certs/dhparam.pem ]; then
-        log $LOG_LEVEL_INFO "Required SSL files missing. Generating SSL certificates..." "$UPDATE_LOG_FILE"
+        log "Required SSL files missing. Generating SSL certificates..."
         configure_openssl
         if [ $? -ne 0 ]; then
-            log $LOG_LEVEL_ERROR "Failed to generate SSL certificates. Skipping Nginx configuration." "$UPDATE_LOG_FILE"
+            log "Failed to generate SSL certificates. Skipping Nginx configuration."
             return 1
         fi
     else
-        log $LOG_LEVEL_INFO "SSL certificates already exist. Skipping generation." "$UPDATE_LOG_FILE"
+        log "SSL certificates already exist. Skipping generation."
     fi
 
     # Configure global Nginx settings
     local nginx_global_conf="/etc/nginx/nginx.conf"
     if [ ! -f "$nginx_global_conf.bak" ]; then
         cp "$nginx_global_conf" "$nginx_global_conf.bak"
-        log $LOG_LEVEL_INFO "Backup of nginx.conf created at $nginx_global_conf.bak" "$UPDATE_LOG_FILE"
+        log "Backup of nginx.conf created at $nginx_global_conf.bak"
     fi
 
     # Ensure the limit_req_zone directive exists in the global http block
     if ! grep -q "limit_req_zone" "$nginx_global_conf"; then
         sed -i '/^http {/a \    limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;' "$nginx_global_conf"
-        log $LOG_LEVEL_INFO "Added rate limiting directive to Nginx global http block." "$UPDATE_LOG_FILE"
+        log "Added rate limiting directive to Nginx global http block."
     else
-        log $LOG_LEVEL_INFO "Rate limiting directive already exists in Nginx configuration, skipping." "$UPDATE_LOG_FILE"
+        log "Rate limiting directive already exists in Nginx configuration, skipping."
     fi
 
     # Ensure the log_format directive exists in the global http block
     if ! grep -q "log_format proxy_logs" "$nginx_global_conf"; then
         sed -i '/^http {/a \    log_format proxy_logs '\''[\$time_local] \$remote_addr: \$remote_port -> \$server_addr: \$server_port '\''\n                       '\''"\$request" \$status \$body_bytes_sent '\''\n                       '\''"\$http_referer" "\$http_user_agent" SSL: \$ssl_cipher \$ssl_protocol'\'';' "$nginx_global_conf"
-        log $LOG_LEVEL_INFO "Added log_format directive to Nginx global http block." "$UPDATE_LOG_FILE"
+        log "Added log_format directive to Nginx global http block."
     else
-        log $LOG_LEVEL_INFO "Log_format directive already exists in Nginx configuration, skipping." "$UPDATE_LOG_FILE"
+        log "Log_format directive already exists in Nginx configuration, skipping."
     fi
 
     # Configure Nginx SSL snippet 
@@ -1345,26 +1345,26 @@ EOF
     local NGX_SITES_ENABLED="/etc/nginx/sites-enabled/tor_proxy"
     if [ ! -f "$NGX_SITES_ENABLED" ]; then
         ln -s "$NGX_CONF" "$NGX_SITES_ENABLED"
-        log $LOG_LEVEL_INFO "Linked $NGX_CONF to $NGX_SITES_ENABLED." "$UPDATE_LOG_FILE"
+        log "Linked $NGX_CONF to $NGX_SITES_ENABLED."
     else
-        log $LOG_LEVEL_INFO "Nginx site configuration already enabled, skipping." "$UPDATE_LOG_FILE"
+        log "Nginx site configuration already enabled, skipping."
     fi
 
     # Test Nginx configuration
     if ! nginx -t; then
-        log $LOG_LEVEL_ERROR "Nginx configuration test failed. Please check your configuration." "$UPDATE_LOG_FILE"
+        log "Nginx configuration test failed. Please check your configuration."
         return 1
     fi
 
     # Start Nginx to apply changes
     if systemctl start nginx; then
-        log $LOG_LEVEL_INFO "Nginx started successfully with updated configuration." "$UPDATE_LOG_FILE"
+        log "Nginx started successfully with updated configuration."
     else
-        log $LOG_LEVEL_ERROR "Failed to start Nginx. Check the service status." "$UPDATE_LOG_FILE"
+        log "Failed to start Nginx. Check the service status."
         return 1
     fi
 
-    log $LOG_LEVEL_INFO "Nginx SSL with strict HTTPS and SOCKS5 proxy configured successfully." "$UPDATE_LOG_FILE"
+    log "Nginx SSL with strict HTTPS and SOCKS5 proxy configured successfully."
     return 0
 }
 
@@ -1373,7 +1373,7 @@ nginx_conf
 # Create configure_privoxy for socks5 traffic
 privoxy_conf() {
     local PRIVOXY_CONF="/etc/privoxy/config"
-    log $LOG_LEVEL_INFO "Creating privoxy config..." "$UPDATE_LOG_FILE"
+    log "Creating privoxy config..."
     cat << 'EOF' > "$PRIVOXY_CONF"
 # Weiterleitung an Tor (SOCKS5-Proxy)
 forward-socks5t / 127.0.0.1:9050 .
@@ -1385,7 +1385,7 @@ EOF
     # Set permissions for the configuration file
     chmod 644 "$PRIVOXY_CONF"
     chown root:root "$PRIVOXY_CONF"
-    log $LOG_LEVEL_INFO "Creating privoxy config successful..." "$UPDATE_LOG_FILE"
+    log "Creating privoxy config successful..."
 }
 
 privoxy_conf
@@ -1451,8 +1451,8 @@ verifier() {
 
 verifier
 
-log $LOG_LEVEL_INFO "#############################################################################" "$oO_LOG_FILE"
-log $LOG_LEVEL_INFO "=============================================================================" "$oO_LOG_FILE"
+log "#############################################################################" "$oO_LOG_FILE"
+log "=============================================================================" "$oO_LOG_FILE"
 
 echo "#############################################################################"
 echo "============================================================================="
@@ -1463,5 +1463,5 @@ script_duration=$((script_end_time - script_start_time))
 duration_formatted=$(printf '%02d:%02d:%02d' $((script_duration/3600)) $((script_duration%3600/60)) $((script_duration%60)))
 
 # Loggen der Abschlussnachricht
-log $LOG_LEVEL_INFO "Script execution completed! Total runtime: $duration_formatted (hh:mm:ss)" "$oO_LOG_FILE"
+log "Script execution completed! Total runtime: $duration_formatted (hh:mm:ss)" "$oO_LOG_FILE"
 echo  "Script execution completed! Total runtime: $duration_formatted (hh:mm:ss)"
