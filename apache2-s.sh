@@ -34,8 +34,8 @@ log() {
 }
 
 # Logs initialisieren und Berechtigungen setzen
-log "LOG_DIR=$LOG_DIR"
-log "LOG_FILE=$LOG_FILE"
+log "LOG_DIR=$LOG_DIR" "$LOG_FILE"
+log "LOG_FILE=$LOG_FILE" "$LOG_FILE"
 
 touch "$LOG_DIR"
 chmod 644 "$LOG_DIR"
@@ -52,37 +52,33 @@ tools() {
         openssh-server
         certbot
         python3-certbot-apache
-        install libapache2-mod-security2
+        libapache2-mod-security2
         libapache2-mod-evasive
         brotli
         libapache2-mod-geoip
     )
 
-    # Installieren der Tools
-    apt update && apt install -y "${packages[@]}" || {
+    if ! apt update || ! apt install -y "${packages[@]}"; then
         log "Fehler: Fehler beim Installieren der Tools. Abbruch!" >&2
         exit 1
-    }
+    fi
 }
 
 start_stop() {
     # Apache starten
-    systemctl start apache2
-    if [[ $? -ne 0 ]]; then
+    if ! systemctl start apache2; then
         log "Fehler: Apache konnte nicht gestartet werden." >&2
         return 1
     fi
 
     # Apache aktivieren
-    systemctl enable apache2
-    if [[ $? -ne 0 ]]; then
+    if ! systemctl enable apache2; then
         log "Fehler: Apache konnte nicht aktiviert werden." >&2
         return 1
     fi
 
     # Überprüfen, ob Apache aktiv ist
-    systemctl is-active --quiet apache2
-    if [[ $? -eq 0 ]]; then
+    if ! systemctl is-active --quiet apache2; then
         log "Apache läuft erfolgreich."
     else
         log "Fehler: Apache läuft nicht." >&2
@@ -90,8 +86,7 @@ start_stop() {
     fi
 
     # Apache stoppen
-    systemctl stop apache2
-    if [[ $? -ne 0 ]]; then
+    if ! systemctl stop apache2; then
         log "Fehler: Apache konnte nicht gestoppt werden." >&2
         return 1
     fi
@@ -127,6 +122,10 @@ modules() {
 }
 
 apache2_conf() {
+    local onion_site
+    onion_site="/etc/apache2/sites-available/onion-site.conf"
+    echo "Using onion site configuration: $onion_site"
+
     cat << EOF > /etc/apache2/sites-available/onion-site.conf
 <VirtualHost 127.0.0.1:80>
     ServerName example.onion
@@ -223,8 +222,7 @@ EOF
 
 stop() {
     # Apache stoppen
-    systemctl stop apache2
-    if [[ $? -ne 0 ]]; then
+    if ! systemctl stop apache2; then
         log "Fehler: Apache konnte nicht gestoppt werden." >&2
         return 1
     fi
@@ -238,7 +236,8 @@ get_onion_domain() {
     # Prüfen, ob die Datei existiert
     if [[ -f "$onion_file" ]]; then
         # Die .onion-Domain aus der Datei auslesen
-        local onion_domain=$(< "$onion_file")
+        local onion_domain
+        onion_domain=$(< "$onion_file")
         
         # Prüfen, ob die Datei einen Inhalt hat
         if [[ -n "$onion_domain" ]]; then
