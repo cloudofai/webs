@@ -60,7 +60,7 @@ deb-src http://security.debian.org/debian-security bookworm-security main
 
 deb http://deb.debian.org/debian bookworm-backports main
 
-deb http://deb.debian.org/debian sid main
+#deb http://deb.debian.org/debian sid main
 EOF
 
     if ! sudo chown root:root /etc/apt/sources.list; then
