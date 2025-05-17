@@ -149,7 +149,6 @@ apache2_conf() {
     Header always set X-XSS-Protection "1; mode=block"
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
     Header always set Referrer-Policy "no-referrer"
-    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 
     # Deflate-Komprimierung
     <IfModule mod_deflate.c>
