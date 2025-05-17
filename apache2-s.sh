@@ -72,6 +72,22 @@ start_stop() {
         log "Fehler: Apache läuft nicht." >&2
         return 1
     fi
+
+    # Apache stoppen
+    systemctl stop apache2
+    if [[ $? -ne 0 ]]; then
+        log "Fehler: Apache konnte nicht gestoppt werden." >&2
+        return 1
+    fi
+
+    log "Apache wurde erfolgreich gestartet und danach gestoppt."
+}
+
+load_modules() {
+    a2enmod headers
+    a2enmod ssl
+    a2enmod rewrite
+    a2enmod security2
 }
 
 apache_conf() {
@@ -110,6 +126,15 @@ EOF
         log "Fehler: Konnte den Apache-Dienst nicht neu laden." >&2
         return 1
     }
+}
+
+stop() {
+    # Apache stoppen
+    systemctl stop apache2
+    if [[ $? -ne 0 ]]; then
+        log "Fehler: Apache konnte nicht gestoppt werden." >&2
+        return 1
+    fi
 }
 
 # Funktion, um die .onion-Domain auszulesen und als Variable zu speichern
@@ -159,6 +184,8 @@ update_config() {
 
 tools
 start_stop
+load_modules
 apache_conf
+stop
 get_onion_domain
 update_config
