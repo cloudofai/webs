@@ -33,6 +33,18 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
+# Logs initialisieren und Berechtigungen setzen
+log "LOG_DIR=$LOG_DIR"
+log "LOG_FILE=$LOG_FILE"
+
+touch "$LOG_DIR"
+chmod 644 "$LOG_DIR"
+chown root:adm "$LOG_DIR"
+
+touch "$LOG_FILE"
+chmod 644 "$LOG_FILE"
+chown root:adm "$LOG_FILE"
+
 tools() {
     # Tools, die installiert werden sollen
     local packages=(
