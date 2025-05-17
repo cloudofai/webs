@@ -52,6 +52,10 @@ tools() {
         openssh-server
         certbot
         python3-certbot-apache
+        install libapache2-mod-security2
+        libapache2-mod-evasive
+        brotli
+        libapache2-mod-geoip
     )
 
     # Installieren der Tools
@@ -95,23 +99,47 @@ start_stop() {
     log "Apache wurde erfolgreich gestartet und danach gestoppt."
 }
 
-load_modules() {
-    a2enmod headers
-    a2enmod ssl
-    a2enmod rewrite
-    a2enmod security2
+modules() {
+    # Liste der zu ladenden Module
+    local modules=(
+        headers
+        ssl
+        rewrite
+        security2
+        deflate
+        expires
+        proxy
+        proxy_http
+        status
+        remoteip
+        evasive
+        brotli
+        geoip
+    )
+
+    # Module iterativ aktivieren
+    for module in "${modules[@]}"; do
+        if ! a2enmod "$module" >/dev/null 2>&1; then
+            echo "Fehler: Modul $module konnte nicht aktiviert werden." >&2
+            return 1
+        fi
+    done
 }
 
-apache_conf() {
+apache2_conf() {
     cat << EOF > /etc/apache2/sites-available/onion-site.conf
-    <VirtualHost 127.0.0.1:80>
+<VirtualHost 127.0.0.1:80>
     ServerName example.onion
     DocumentRoot /var/www/onion-site
+    
+    # Verzeichniszugriffsregeln
     <Directory /var/www/onion-site>
         Options -Indexes +FollowSymLinks
         AllowOverride None
         Require all granted
     </Directory>
+
+    # Fehler- und Zugriffsprotokollierung
     ErrorLog ${APACHE_LOG_DIR}/onion-site-error.log
     CustomLog ${APACHE_LOG_DIR}/onion-site-access.log combined
 
@@ -123,6 +151,59 @@ apache_conf() {
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
     Header always set Referrer-Policy "no-referrer"
     Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+    # Deflate-Komprimierung
+    <IfModule mod_deflate.c>
+        AddOutputFilterByType DEFLATE text/html text/plain text/xml
+        AddOutputFilterByType DEFLATE application/javascript application/json
+        AddOutputFilterByType DEFLATE text/css
+    </IfModule>
+
+    # Expires-Modul für Caching
+    <IfModule mod_expires.c>
+        ExpiresActive On
+        ExpiresByType image/jpg "access plus 1 month"
+        ExpiresByType image/png "access plus 1 month"
+        ExpiresByType text/css "access plus 1 week"
+        ExpiresByType application/javascript "access plus 1 week"
+    </IfModule>
+
+    # Proxy-Einstellungen (für Tor)
+    <IfModule mod_proxy.c>
+        ProxyPreserveHost On
+        ProxyRequests Off
+        <Proxy *>
+            Require all granted
+        </Proxy>
+        ProxyPass / http://127.0.0.1:8080/
+        ProxyPassReverse / http://127.0.0.1:8080/
+    </IfModule>
+
+    # RemoteIP-Modul-Konfiguration (falls hinter einem Proxy)
+    <IfModule mod_remoteip.c>
+        RemoteIPHeader X-Forwarded-For
+        RemoteIPTrustedProxy 127.0.0.1
+    </IfModule>
+
+    # Brotli-Komprimierung
+    <IfModule mod_brotli.c>
+        AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/xml
+        AddOutputFilterByType BROTLI_COMPRESS application/javascript application/json
+        AddOutputFilterByType BROTLI_COMPRESS text/css
+    </IfModule>
+
+    # ModSecurity (Security2)
+    <IfModule security2_module>
+        SecRuleEngine On
+        IncludeOptional /usr/share/modsecurity-crs/*.conf
+        IncludeOptional /usr/share/modsecurity-crs/rules/*.conf
+    </IfModule>
+
+    # Status-Modul (nur für Debugging und lokal zugänglich)
+    <Location "/server-status">
+        SetHandler server-status
+        Require local
+    </Location>
 </VirtualHost>
 EOF
 
@@ -172,7 +253,11 @@ get_onion_domain() {
     fi
 }
 
-# Die Funktion aufrufen und die .onion-Domain in einer Variablen speichern
+tools
+start_stop
+modules
+apache2_conf
+stop
 onion_domain=$(get_onion_domain)
 
 update_config() {
@@ -194,10 +279,4 @@ update_config() {
     systemctl reload apache2
 }
 
-tools
-start_stop
-load_modules
-apache_conf
-stop
-get_onion_domain
 update_config
